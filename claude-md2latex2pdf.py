@@ -55,6 +55,40 @@ def remove_emojis(content):
     return emoji_pattern.sub('', content)
 
 
+def fix_list_formatting(content):
+    """Ensure proper blank lines before lists for Pandoc compatibility.
+    
+    Pandoc requires a blank line before list items when they follow a paragraph.
+    This function adds blank lines where needed while preserving code blocks.
+    """
+    # Split by code blocks to avoid modifying content inside them
+    code_block_pattern = r'(```[\s\S]*?```)'
+    parts = re.split(code_block_pattern, content)
+    
+    result = []
+    for part in parts:
+        if part.startswith('```'):
+            # This is a code block, don't modify
+            result.append(part)
+        else:
+            # Add blank line before unordered list items that follow non-empty lines
+            # Pattern: (non-empty line)(newline)(list item starting with -, *, or +)
+            part = re.sub(
+                r'(\S[^\n]*)\n([ \t]*[-*+] )',
+                r'\1\n\n\2',
+                part
+            )
+            # Add blank line before ordered list items (1. 2. etc.)
+            part = re.sub(
+                r'(\S[^\n]*)\n([ \t]*\d+\. )',
+                r'\1\n\n\2',
+                part
+            )
+            result.append(part)
+    
+    return ''.join(result)
+
+
 def create_latex_header(settings):
     """Create LaTeX header with listings configuration based on settings."""
     header = rf"""
@@ -219,6 +253,7 @@ def process_code_blocks(content):
 def preprocess_markdown(md_text):
     """Preprocess markdown for Pandoc conversion."""
     content = remove_emojis(md_text)
+    content = fix_list_formatting(content)  # Fix list formatting before code blocks
     content = process_code_blocks(content)
     return content
 
@@ -663,7 +698,7 @@ def generate_pdf():
 
 
 def main():
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5000)
 
 
 if __name__ == '__main__':
